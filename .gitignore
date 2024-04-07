@@ -1,0 +1,5 @@
+/build/
+/build-embed/
+/micropython_embed/
+/pewpew.pdx
+/Source/pdex.*
