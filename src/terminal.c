@@ -1,4 +1,5 @@
 #include "terminal.h"
+#include "globals.h"
 
 #include <stdint.h>
 
@@ -17,6 +18,7 @@ static int dirtyRowsBegin = 0;
 static int dirtyRowsEnd = 0;
 static int cursorx = 0;
 static int cursory = 0;
+static unsigned int lastActivity = 0;
 static int blink = 0;
 static enum { ESEQ_NONE, ESEQ_ESC, ESEQ_ESC_BRACKET, ESEQ_ESC_BRACKET_DIGIT } eseqstate = ESEQ_NONE;
 static int eseqn = 0;
@@ -208,6 +210,7 @@ void terminalPutchar(unsigned char c) {
 			if (*p == 0) *p = ' ';
 		}
 	}
+	lastActivity = global_pd->system->getCurrentTimeMilliseconds();
 }
 
 void terminalWrite(const char* data, size_t len) {
@@ -243,7 +246,8 @@ void terminalUpdate(PlaydateAPI* pd) {
 		dirtyRowsBegin = dirtyRowsEnd = 0;
 	}
 
-	int nblink = ((pd->system->getCurrentTimeMilliseconds() & (1 << 9)) != 0);
+	unsigned int now = pd->system->getCurrentTimeMilliseconds();
+	int nblink = ((int)(now - lastActivity) < 500) || ((now & (1 << 9)) != 0);
 	if (nblink != blink) {
 		if (nblink) {
 			// draw the cursor at the new location
