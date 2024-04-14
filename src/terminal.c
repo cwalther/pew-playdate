@@ -18,6 +18,8 @@ static int dirtyRowsEnd = 0;
 static int cursorx = 0;
 static int cursory = 0;
 static int blink = 0;
+static enum { ESEQ_NONE, ESEQ_ESC, ESEQ_ESC_BRACKET, ESEQ_ESC_BRACKET_DIGIT } eseqstate = ESEQ_NONE;
+static int eseqn = 0;
 
 void terminalInit(PlaydateAPI* pd) {
 	const char* err;
@@ -38,53 +40,145 @@ void terminalTouch(void) {
 
 void terminalPutchar(unsigned char c) {
 	int cursorjumped = 0;
-	// Decode UTF-8 to UCS-2. Invalid UTF-8 is not detected but treated as
-	// garbage-in-garbage-out.
-	if ((c & 0x80) == 0) {
-		// single-byte UTF-8
-		switch (c) {
-			case '\n':
-				cursor += WIDTH_CHARS;
-				cursorjumped = 1;
-				break;
-			case '\r':
-				cursor = &buffer[0] + ((cursor - &buffer[0]) / WIDTH_CHARS) * WIDTH_CHARS;
-				break;
-			default:
-				*cursor++ = c;
-				break;
+	if (eseqstate == ESEQ_NONE) {
+		// Decode UTF-8 to UCS-2. Invalid UTF-8 is not detected but treated as
+		// garbage-in-garbage-out.
+		if ((c & 0x80) == 0) {
+			// single-byte UTF-8
+			switch (c) {
+				case '\x08': // backspace
+					if (cursor != &buffer[0]) {
+						cursor--;
+					}
+					break;
+				case '\x1b': // esc
+					eseqstate = ESEQ_ESC;
+					break;
+				case '\n':
+					cursor += WIDTH_CHARS;
+					cursorjumped = 1;
+					break;
+				case '\r':
+					cursor = &buffer[0] + ((cursor - &buffer[0]) / WIDTH_CHARS) * WIDTH_CHARS;
+					break;
+				default:
+					*cursor++ = c;
+					break;
+			}
 		}
-	}
-	else if ((c & 0x40) == 0) {
-		// multi-byte UTF-8 continuation
-		*cursor |= ((c & 0x3f) << utf8shift);
-		if (utf8shift == 0) {
-			cursor++;
+		else if ((c & 0x40) == 0) {
+			// multi-byte UTF-8 continuation
+			*cursor |= ((c & 0x3f) << utf8shift);
+			if (utf8shift == 0) {
+				cursor++;
+			}
+			else {
+				utf8shift -= 6;
+			}
+		}
+		else if ((c & 0x20) == 0) {
+			// 2-byte UTF-8 start
+			*cursor = ((c & 0x1f) << 6);
+			utf8shift = 0;
+		}
+		else if ((c & 0x10) == 0) {
+			// 3-byte UTF-8 start
+			*cursor = ((c & 0x0f) << 12);
+			utf8shift = 6;
+		}
+		else if ((c & 0x08) == 0) {
+			// 4-byte UTF-8 start - we can't represent those in uint16_t, for
+			// now just drop the overflowing bits
+			*cursor = 0; // ((c & 0x07) << 18);
+			utf8shift = 12;
 		}
 		else {
-			utf8shift -= 6;
+			// invalid UTF-8
+			*cursor++ = 0xFFFD; // REPLACEMENT CHARACTER
 		}
 	}
-	else if ((c & 0x20) == 0) {
-		// 2-byte UTF-8 start
-		*cursor = ((c & 0x1f) << 6);
-		utf8shift = 0;
+	else if (eseqstate == ESEQ_ESC) {
+		switch(c) {
+			case '[':
+				eseqn = 0;
+				eseqstate = ESEQ_ESC_BRACKET;
+				break;
+			default:
+				eseqstate = ESEQ_NONE;
+				break;
+		}
 	}
-	else if ((c & 0x10) == 0) {
-		// 3-byte UTF-8 start
-		*cursor = ((c & 0x0f) << 12);
-		utf8shift = 6;
+	else if (eseqstate == ESEQ_ESC_BRACKET || eseqstate == ESEQ_ESC_BRACKET_DIGIT) {
+		if ('0' <= c && c <= '9') {
+			eseqn = eseqn*10 + (c - '0');
+			eseqstate = ESEQ_ESC_BRACKET_DIGIT;
+		}
+		else {
+			if (c == 'A') { // cursor up
+				if (eseqstate == ESEQ_ESC_BRACKET) eseqn = 1;
+				for (; eseqn > 0; eseqn--) {
+					if (cursor >= buffer + WIDTH_CHARS) {
+						cursor -= WIDTH_CHARS;
+						cursorjumped = 1;
+					}
+				}
+			}
+			else if (c == 'B') { // cursor down
+				if (eseqstate == ESEQ_ESC_BRACKET) eseqn = 1;
+				for (; eseqn > 0; eseqn--) {
+					if (cursor < buffer + WIDTH_CHARS*(HEIGHT_CHARS - 1)) {
+						cursor += WIDTH_CHARS;
+						cursorjumped = 1;
+					}
+				}
+			}
+			else if (c == 'C') { // cursor forward
+				if (eseqstate == ESEQ_ESC_BRACKET) eseqn = 1;
+				for (; eseqn > 0; eseqn--) {
+					if (((cursor - &buffer[0]) % WIDTH_CHARS) < WIDTH_CHARS - 1) {
+						cursor += 1;
+						cursorjumped = 1;
+					}
+				}
+			}
+			else if (c == 'D') { // cursor back
+				if (eseqstate == ESEQ_ESC_BRACKET) eseqn = 1;
+				for (; eseqn > 0; eseqn--) {
+					if (((cursor - &buffer[0]) % WIDTH_CHARS) > 0) {
+						cursor -= 1;
+					}
+				}
+			}
+			else if (c == 'K') { // erase in line
+				if (eseqstate == ESEQ_ESC_BRACKET) eseqn = 0;
+				uint16_t* begin;
+				uint16_t* end;
+				switch (eseqn) {
+					case 0: // to end of line
+						begin = cursor;
+						end = &buffer[0] + ((cursor - &buffer[0]) / WIDTH_CHARS + 1) * WIDTH_CHARS;
+						break;
+					case 1: // to beginning of line
+						begin = &buffer[0] + ((cursor - &buffer[0]) / WIDTH_CHARS) * WIDTH_CHARS;
+						end = cursor;
+						break;
+					case 2: // entire line
+						begin = &buffer[0] + ((cursor - &buffer[0]) / WIDTH_CHARS) * WIDTH_CHARS;
+						end = begin + WIDTH_CHARS;
+						break;
+					default: // invalid
+						begin = cursor;
+						end = cursor;
+						break;
+				}
+				for (uint16_t* p = begin; p < end; p++) {
+					*p = (p < cursor) ? ' ' : '\0';
+				}
+			}
+			eseqstate = ESEQ_NONE;
+		}
 	}
-	else if ((c & 0x08) == 0) {
-		// 4-byte UTF-8 start - we can't represent those in uint16_t, for
-		// now just drop the overflowing bits
-		*cursor = 0; // ((c & 0x07) << 18);
-		utf8shift = 12;
-	}
-	else {
-		// invalid UTF-8
-		*cursor++ = 0xFFFD; // REPLACEMENT CHARACTER
-	}
+
 	if (cursor >= buffer + sizeof(buffer)/sizeof(buffer[0])) {
 		// scroll
 		memmove(buffer, buffer + WIDTH_CHARS, WIDTH_CHARS*(HEIGHT_CHARS - 1)*sizeof(buffer[0]));
