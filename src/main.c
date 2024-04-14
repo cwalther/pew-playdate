@@ -134,9 +134,50 @@ static int update(void* userdata)
 }
 
 static void onSerialMessage(const char* data) {
-	while (*data != '\0') {
-		pyexec_event_repl_process_char(*data++);
+	if (data[0] == '!') {
+		// base64: can encode any binary data
+		data++;
+		unsigned char acc = 0;
+		unsigned char shift = 0;
+		while (1) {
+			unsigned char d = *data++;
+			if (d == 0) {
+				break;
+			}
+			else if (d == '+') {
+				d = 62;
+			}
+			else if (d == '/') {
+				d = 63;
+			}
+			else if (d >= '0' && d <= '9') {
+				d = d - '0' + 52;
+			}
+			else if (d >= 'A' && d <= 'Z') {
+				d = d - 'A' + 0;
+			}
+			else if (d >= 'a' && d <= 'z') {
+				d = d - 'a' + 26;
+			}
+			else {
+				continue;
+			}
+
+			if (shift != 0) {
+				acc |= (d >> (6 - shift));
+				pyexec_event_repl_process_char(acc);
+			}
+			shift += 2;
+			acc = (d << shift);
+			shift &= 7;
+		}
 	}
-	pyexec_event_repl_process_char('\r');
-	pyexec_event_repl_process_char('\n');
+	else {
+		// literal data: convenient to enter manually
+		while (*data != '\0') {
+			pyexec_event_repl_process_char(*data++);
+		}
+		pyexec_event_repl_process_char('\r');
+		pyexec_event_repl_process_char('\n');
+	}
 }
