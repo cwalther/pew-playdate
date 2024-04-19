@@ -1,3 +1,6 @@
 [submodule "micropython"]
 	path = micropython
 	url = https://github.com/micropython/micropython.git
+[submodule "playdate-coroutines"]
+	path = playdate-coroutines
+	url = https://github.com/nstbayless/playdate-coroutines.git

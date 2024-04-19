@@ -3,6 +3,8 @@
 
 #include "pd_api.h"
 
+#include "playdate-coroutines/pdco.h"
+
 #include "port/micropython_embed.h"
 #include "py/stackctrl.h"
 #include "py/mphal.h"
@@ -10,11 +12,15 @@
 
 #include "globals.h"
 #include "terminal.h"
+#include "queue.h"
+
+#define PYTHON_STACK_SIZE 65536
 
 PlaydateAPI* global_pd;
 
 static int update(void* userdata);
 static void onSerialMessage(const char* data);
+static pdco_handle_t pythonCoMain(pdco_handle_t caller);
 
 // This is example 1 script, which will be compiled and executed.
 static const char *example_1 =
@@ -85,40 +91,34 @@ static const char *example_2 =
 // This array is the MicroPython GC heap.
 // TODO enlarge this some time, but while shaking out bugs it seems a good idea to hammer the GC
 static char heap[16 * 1024];
+static pdco_handle_t pythonCo;
+static int pythonExit = 0;
+static Queue stdinQueue;
 
 #ifdef _WINDLL
 __declspec(dllexport)
 #endif
 int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 {
-	int stack_top;
 	(void)arg; // arg is currently only used for event = kEventKeyPressed
 
 	if (event == kEventInit) {
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(&update, pd);
-
 		pd->system->setSerialMessageCallback(&onSerialMessage);
 
 		global_pd = pd;
 		terminalInit(pd);
+		queueInit(&stdinQueue);
 
-	#if MICROPY_STACK_CHECK
-		mp_stack_set_limit(16384);
-	#endif
-		mp_embed_init(&heap[0], sizeof(heap), &stack_top);
-
-		// Run the example scripts (they will be compiled first).
-		mp_embed_exec_str(example_1);
-		mp_embed_exec_str(example_2);
-
-		pyexec_event_repl_init();
-
-		// blocking REPL, try once we have coroutine switching
-		//pyexec_friendly_repl();
+		pythonCo = pdco_create(&pythonCoMain, PYTHON_STACK_SIZE, NULL);
+		if (pythonCo < 0) pd->system->logToConsole("pdco_create error");
 	}
 	else if (event == kEventTerminate) {
-		mp_embed_deinit();
+		pd->system->logToConsole("telling python to exit");
+		pythonExit = 1;
+		pdco_yield(pythonCo);
+		pd->system->logToConsole("python exited");
 	}
 
 	return 0;
@@ -129,6 +129,8 @@ static int update(void* userdata)
 	PlaydateAPI* pd = userdata;
 
 	terminalUpdate(pd);
+
+	pdco_yield(pythonCo);
 
 	return 1;
 }
@@ -165,7 +167,7 @@ static void onSerialMessage(const char* data) {
 
 			if (shift != 0) {
 				acc |= (d >> (6 - shift));
-				pyexec_event_repl_process_char(acc);
+				queueWrite(&stdinQueue, &acc, 1);
 			}
 			shift += 2;
 			acc = (d << shift);
@@ -174,10 +176,38 @@ static void onSerialMessage(const char* data) {
 	}
 	else {
 		// literal data: convenient to enter manually
-		while (*data != '\0') {
-			pyexec_event_repl_process_char(*data++);
-		}
-		pyexec_event_repl_process_char('\r');
-		pyexec_event_repl_process_char('\n');
+		queueWrite(&stdinQueue, data, strlen(data));
+		queueWrite(&stdinQueue, "\r\n", 2);
 	}
+}
+
+static pdco_handle_t pythonCoMain(pdco_handle_t caller) {
+	int stack_top;
+#if MICROPY_STACK_CHECK
+	// deduction accounts for pdco STACKMARGIN and stuff above &stack_top
+	mp_stack_set_limit(PYTHON_STACK_SIZE - 176);
+#endif
+	mp_embed_init(&heap[0], sizeof(heap), &stack_top);
+
+	// Run the example scripts (they will be compiled first).
+	mp_embed_exec_str(example_1);
+	mp_embed_exec_str(example_2);
+
+	pyexec_event_repl_init();
+
+	// blocking REPL, try once we have coroutine switching
+	//pyexec_friendly_repl();
+
+	while (!pythonExit) {
+		char c;
+		while (queueRead(&stdinQueue, &c, 1) > 0) {
+			pyexec_event_repl_process_char(c);
+		}
+		pdco_yield(caller);
+	}
+	global_pd->system->logToConsole("python exiting");
+
+	mp_embed_deinit();
+
+	return caller;
 }
