@@ -36,6 +36,7 @@ static int utf8shift = 0;
 static LCDFont* font = NULL;
 static LCDFont* font1 = NULL;
 static LCDFont* font2 = NULL;
+static LCDFont* font3 = NULL;
 static int dirtyRowsBegin = 0;
 static int dirtyRowsEnd = 0;
 static int cursorx = 0;
@@ -53,6 +54,10 @@ void terminalInit(PlaydateAPI* pd) {
 	}
 	font2 = pd->graphics->loadFont("fonts/Gnu-15", &err);
 	if (font2 == NULL) {
+		pd->system->error("Couldn't load terminal font: %s", err);
+	}
+	font3 = pd->graphics->loadFont("fonts/Ari-15", &err);
+	if (font3 == NULL) {
 		pd->system->error("Couldn't load terminal font: %s", err);
 	}
 }
@@ -248,7 +253,7 @@ void terminalUpdate(PlaydateAPI* pd) {
 	PDButtons pushed;
 	pd->system->getButtonState(NULL, &pushed, NULL);
 	if (pushed & kButtonA) {
-		font = (font == font1) ? font2 : font1;
+		font = (font == font1) ? font2 : (font == font2) ? font3 : font1;
 		terminalTouch();
 	}
 
