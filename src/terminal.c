@@ -226,7 +226,7 @@ void terminalPutchar(unsigned char c) {
 		else {
 			if (dirtyRowsBegin > row) dirtyRowsBegin = row;
 			row++;
-			if (dirtyRowsEnd < row) dirtyRowsBegin = row;
+			if (dirtyRowsEnd < row) dirtyRowsEnd = row;
 		}
 	}
 	if (cursorjumped) {
