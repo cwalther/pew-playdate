@@ -41,3 +41,9 @@ size_t queueWrite(Queue* q, const void* data, size_t length);
 // Read at most `length` bytes from the queue to `buffer`. Returns number of
 // bytes read. If that is fewer than requested, the queue is empty.
 size_t queueRead(Queue* q, void* buffer, size_t length);
+
+// How much free space for writing.
+size_t queueWriteAvailable(Queue* q);
+
+// How many bytes available for reading.
+size_t queueReadAvailable(Queue* q);

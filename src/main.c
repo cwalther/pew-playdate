@@ -27,10 +27,18 @@ THE SOFTWARE.
 
 #include "playdate-coroutines/pdco.h"
 
+//TODO remove this some time
+#define EMBED_EXAMPLES 0
+#if EMBED_EXAMPLES
 #include "port/micropython_embed.h"
+#endif
+#include "py/gc.h"
+#include "py/runtime.h"
 #include "py/stackctrl.h"
 #include "py/mphal.h"
 #include "shared/runtime/pyexec.h"
+#include "shared/runtime/interrupt_char.h"
+#include "shared/readline/readline.h"
 
 #include "globals.h"
 #include "terminal.h"
@@ -39,11 +47,13 @@ THE SOFTWARE.
 #define PYTHON_STACK_SIZE 65536
 
 PlaydateAPI* global_pd;
+Queue stdinQueue;
 
 static int update(void* userdata);
 static void onSerialMessage(const char* data);
 static pdco_handle_t pythonCoMain(pdco_handle_t caller);
 
+#if EMBED_EXAMPLES
 // This is example 1 script, which will be compiled and executed.
 static const char *example_1 =
 	"print('hello world!', list(x + 1.5 for x in range(10)), end='eol\\n')";
@@ -109,13 +119,13 @@ static const char *example_2 =
 	"\n"
 	"print('finish')\n"
 	;
+#endif
 
 // This array is the MicroPython GC heap.
 // TODO enlarge this some time, but while shaking out bugs it seems a good idea to hammer the GC
 static char heap[16 * 1024];
 static pdco_handle_t pythonCo;
 static int pythonExit = 0;
-static Queue stdinQueue;
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -138,9 +148,19 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 	}
 	else if (event == kEventTerminate) {
 		pd->system->logToConsole("telling python to exit");
-		pythonExit = 1;
-		pdco_yield(pythonCo);
-		pd->system->logToConsole("python exited");
+		pythonExit = 100;
+		// this should get us back to the REPL, unless the user catches the exception
+		mp_sched_keyboard_interrupt();
+		// if we were already in the REPL with a non-empty input line, ^C clears it
+		// ^D should get us out of the REPL
+		queueInit(&stdinQueue); // clear the queue
+		char ctrlcd[2] = { 0x03, 0x04 };
+		queueWrite(&stdinQueue, ctrlcd, sizeof(ctrlcd));
+		// if it didn't exit after 100 yields, screw it, quit without cleaning up
+		while (pdco_exists(pythonCo) && --pythonExit > 0) {
+			pdco_yield(pythonCo);
+		}
+		pd->system->logToConsole("python exited at %d", pythonExit);
 	}
 
 	return 0;
@@ -189,7 +209,12 @@ static void onSerialMessage(const char* data) {
 
 			if (shift != 0) {
 				acc |= (d >> (6 - shift));
-				queueWrite(&stdinQueue, &acc, 1);
+				if (acc == mp_interrupt_char) {
+					mp_sched_keyboard_interrupt();
+				}
+				else {
+					queueWrite(&stdinQueue, &acc, 1);
+				}
 			}
 			shift += 2;
 			acc = (d << shift);
@@ -205,31 +230,55 @@ static void onSerialMessage(const char* data) {
 
 static pdco_handle_t pythonCoMain(pdco_handle_t caller) {
 	int stack_top;
+	mp_stack_set_top(&stack_top);
 #if MICROPY_STACK_CHECK
 	// deduction accounts for pdco STACKMARGIN and stuff above &stack_top
 	mp_stack_set_limit(PYTHON_STACK_SIZE - 176);
 #endif
-	mp_embed_init(&heap[0], sizeof(heap), &stack_top);
-
-	// Run the example scripts (they will be compiled first).
-	mp_embed_exec_str(example_1);
-	mp_embed_exec_str(example_2);
-
-	pyexec_event_repl_init();
-
-	// blocking REPL, try once we have coroutine switching
-	//pyexec_friendly_repl();
+	gc_init(&heap[0], &heap[0] + sizeof(heap));
 
 	while (!pythonExit) {
-		char c;
-		while (queueRead(&stdinQueue, &c, 1) > 0) {
-			pyexec_event_repl_process_char(c);
+		mp_init();
+		mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_lib));
+
+		readline_init0();
+
+		pyexec_frozen_module("_boot.py", false);
+		int ret = pyexec_file_if_exists("boot.py");
+		if (ret & PYEXEC_FORCED_EXIT) {
+			goto soft_reset_exit;
 		}
-		pdco_yield(caller);
+		if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL && ret != 0) {
+			ret = pyexec_file_if_exists("main.py");
+			if (ret & PYEXEC_FORCED_EXIT) {
+				goto soft_reset_exit;
+			}
+		}
+
+#if EMBED_EXAMPLES
+		// Run the example scripts (they will be compiled first).
+		mp_embed_exec_str(example_1);
+		mp_embed_exec_str(example_2);
+#endif
+
+		for (;;) {
+			if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
+				if (pyexec_raw_repl() != 0) {
+					break;
+				}
+			} else {
+				if (pyexec_friendly_repl() != 0) {
+					break;
+				}
+			}
+		}
+
+	soft_reset_exit:
+		mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
+		gc_sweep_all();
+		mp_deinit();
 	}
+
 	global_pd->system->logToConsole("python exiting");
-
-	mp_embed_deinit();
-
 	return caller;
 }

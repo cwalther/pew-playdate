@@ -27,6 +27,8 @@ THE SOFTWARE.
 #include "py/stream.h"
 #endif
 
+#include "playdate-coroutines/pdco.h"
+
 #include "globals.h"
 #include "terminal.h"
 
@@ -117,10 +119,12 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
 
 // Binary-mode standard input
 // Receive single character, blocking until one is available.
-static const char* input = "hello\nworld\n";
 int mp_hal_stdin_rx_chr(void) {
-	if (*input == '\0') return 0;
-	return *input++;
+	char c;
+	while (queueRead(&stdinQueue, &c, 1) == 0) {
+		pdco_yield(PDCO_MAIN_ID);
+	}
+	return c;
 }
 
 // Binary-mode standard output
@@ -140,7 +144,7 @@ void mp_hal_stdout_tx_str(const char *str) {
 
 uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 	uintptr_t ret = 0;
-	if ((poll_flags & MP_STREAM_POLL_RD) && *input != '\0') {
+	if ((poll_flags & MP_STREAM_POLL_RD) && queueReadAvailable(&stdinQueue) > 0) {
 		ret |= MP_STREAM_POLL_RD;
 	}
 	if (poll_flags & MP_STREAM_POLL_WR) {

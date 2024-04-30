@@ -23,5 +23,7 @@ THE SOFTWARE.
 #pragma once
 
 #include "pd_api.h"
+#include "queue.h"
 
 extern PlaydateAPI* global_pd;
+extern Queue stdinQueue;

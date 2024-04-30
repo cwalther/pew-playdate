@@ -41,9 +41,6 @@
 // Requires MICROPY_EVENT_POLL_HOOK, don't bother as we have no pollable objects.
 #define MICROPY_PY_SELECT                       (0)
 
-// Temporary until we have coroutine switching and can use the blocking REPL.
-#define MICROPY_REPL_EVENT_DRIVEN               (1)
-
 // We have our own implementation of mp_hal_stdout_tx_strn_cooked().
 #undef MP_PLAT_PRINT_STRN
 

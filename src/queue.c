@@ -67,3 +67,15 @@ size_t queueRead(Queue* q, void* buffer, size_t length) {
 	}
 	return length;
 }
+
+size_t queueWriteAvailable(Queue* q) {
+	ptrdiff_t diff = q->tail - q->head;
+	if (diff < 0) diff += QUEUESIZE;
+	return diff - 1;
+}
+
+size_t queueReadAvailable(Queue* q) {
+	ptrdiff_t diff = q->head - q->tail;
+	if (diff < 0) diff += QUEUESIZE;
+	return diff;
+}

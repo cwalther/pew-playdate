@@ -20,7 +20,8 @@ EMBED_EXTRA += \
 	shared/runtime/pyexec.h \
 	shared/readline/readline.c \
 	shared/readline/readline.h \
-	shared/runtime/interrupt_char.c
+	shared/runtime/interrupt_char.c \
+	shared/runtime/interrupt_char.h
 
 # Include library sources for littlefs 2 in the output.
 EMBED_EXTRA += littlefs2
