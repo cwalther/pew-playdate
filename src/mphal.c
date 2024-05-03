@@ -120,11 +120,14 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
 // Binary-mode standard input
 // Receive single character, blocking until one is available.
 int mp_hal_stdin_rx_chr(void) {
-	char c;
-	while (queueRead(&stdinQueue, &c, 1) == 0) {
-		pdco_yield(PDCO_MAIN_ID);
+	for (;;) {
+		char c;
+		if (queueRead(&stdinQueue, &c, 1) > 0) {
+			return c;
+		}
+		//TODO support MICROPY_PY_OS_DUPTERM
+		mp_event_wait_indefinite();
 	}
-	return c;
 }
 
 // Binary-mode standard output
@@ -155,3 +158,25 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 }
 
 #endif
+
+void pd_hal_wfe_indefinite(void) {
+	// Wait for event indefinitely, called from mp_event_wait_indefinite():
+	// Just yield and wait for the next update().
+	pdco_yield(PDCO_MAIN_ID);
+}
+
+void pd_hal_wfe_ms(int timeout_ms) {
+	// Wait for event with timeout, called from mp_event_wait_ms() and from
+	// MICROPY_VM_HOOK_POLL: If update() is due to return within the timeout
+	// (or already in the past), yield and wait for the next call. If not,
+	// yielding would wait for too long, so just busy-wait (there does not seem
+	// to be a sleep function in the Playdate API) or return immediately for
+	// timeout 0 as from MICROPY_VM_HOOK_POLL.
+	int end = global_pd->system->getCurrentTimeMilliseconds() + timeout_ms;
+	if (end - updateEndDue >= 0) {
+		pdco_yield(PDCO_MAIN_ID);
+	}
+	else if (timeout_ms > 0) {
+		while (end - global_pd->system->getCurrentTimeMilliseconds() > 0) {}
+	}
+}

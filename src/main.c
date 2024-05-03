@@ -48,6 +48,7 @@ THE SOFTWARE.
 
 PlaydateAPI* global_pd;
 Queue stdinQueue;
+unsigned int updateEndDue;
 
 static int update(void* userdata);
 static void onSerialMessage(const char* data);
@@ -138,6 +139,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(&update, pd);
 		pd->system->setSerialMessageCallback(&onSerialMessage);
+		pd->display->setRefreshRate(30.0f);
 
 		global_pd = pd;
 		terminalInit(pd);
@@ -169,6 +171,9 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 static int update(void* userdata)
 {
 	PlaydateAPI* pd = userdata;
+	// empirical: delays above 31 on the simulator and 33 on the device reduce
+	// the frame rate to less than 30
+	updateEndDue = pd->system->getCurrentTimeMilliseconds() + 32;
 
 	terminalUpdate(pd);
 

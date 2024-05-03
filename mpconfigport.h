@@ -55,3 +55,22 @@
 #define MPZ_DIG_SIZE                            (16)
 
 #define MP_STATE_PORT MP_STATE_VM
+
+void pd_hal_wfe_indefinite(void);
+void pd_hal_wfe_ms(int timeout_ms);
+#define MICROPY_INTERNAL_WFE(TIMEOUT_MS) do { \
+	if (TIMEOUT_MS < 0) { \
+		pd_hal_wfe_indefinite(); \
+	} \
+	else { \
+		pd_hal_wfe_ms(TIMEOUT_MS); \
+	} \
+} while (0)
+#define MICROPY_VM_HOOK_COUNT (10)
+#define MICROPY_VM_HOOK_INIT static uint vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
+#define MICROPY_VM_HOOK_POLL if (--vm_hook_divisor == 0) { \
+	vm_hook_divisor = MICROPY_VM_HOOK_COUNT; \
+	pd_hal_wfe_ms(0); \
+}
+#define MICROPY_VM_HOOK_LOOP MICROPY_VM_HOOK_POLL
+#define MICROPY_VM_HOOK_RETURN MICROPY_VM_HOOK_POLL

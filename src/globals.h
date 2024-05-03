@@ -27,3 +27,4 @@ THE SOFTWARE.
 
 extern PlaydateAPI* global_pd;
 extern Queue stdinQueue;
+extern unsigned int updateEndDue;
