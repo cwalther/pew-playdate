@@ -23,6 +23,7 @@ THE SOFTWARE.
 #include "py/builtin.h"
 #include "py/compile.h"
 #include "py/mperrno.h"
+#include "py/mphal.h"
 #if MICROPY_PY_SYS_STDFILES
 #include "py/stream.h"
 #endif
@@ -31,6 +32,12 @@ THE SOFTWARE.
 
 #include "globals.h"
 #include "terminal.h"
+
+#ifndef MICROPY_HW_STDIN_BUFFER_LEN
+#define MICROPY_HW_STDIN_BUFFER_LEN 512
+#endif
+static uint8_t stdin_ringbuf_array[MICROPY_HW_STDIN_BUFFER_LEN];
+ringbuf_t stdin_ringbuf = { stdin_ringbuf_array, sizeof(stdin_ringbuf_array) };
 
 #if !MICROPY_VFS
 
@@ -121,8 +128,8 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
 // Receive single character, blocking until one is available.
 int mp_hal_stdin_rx_chr(void) {
 	for (;;) {
-		char c;
-		if (queueRead(&stdinQueue, &c, 1) > 0) {
+		int c = ringbuf_get(&stdin_ringbuf);
+		if (c != -1) {
 			return c;
 		}
 		//TODO support MICROPY_PY_OS_DUPTERM
@@ -147,7 +154,7 @@ void mp_hal_stdout_tx_str(const char *str) {
 
 uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 	uintptr_t ret = 0;
-	if ((poll_flags & MP_STREAM_POLL_RD) && queueReadAvailable(&stdinQueue) > 0) {
+	if ((poll_flags & MP_STREAM_POLL_RD) && ringbuf_peek(&stdin_ringbuf) != -1) {
 		ret |= MP_STREAM_POLL_RD;
 	}
 	if (poll_flags & MP_STREAM_POLL_WR) {

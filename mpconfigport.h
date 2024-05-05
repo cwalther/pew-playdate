@@ -41,6 +41,10 @@
 // Requires MICROPY_EVENT_POLL_HOOK, don't bother as we have no pollable objects.
 #define MICROPY_PY_SELECT                       (0)
 
+// We have our own mphalport.h (which must #include "port/mphalport.h" that
+// mpconfigport_common.h set MICROPY_MPHALPORT_H to).
+#undef MICROPY_MPHALPORT_H
+
 // We have our own implementation of mp_hal_stdout_tx_strn_cooked().
 #undef MP_PLAT_PRINT_STRN
 

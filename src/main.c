@@ -42,12 +42,10 @@ THE SOFTWARE.
 
 #include "globals.h"
 #include "terminal.h"
-#include "queue.h"
 
 #define PYTHON_STACK_SIZE 65536
 
 PlaydateAPI* global_pd;
-Queue stdinQueue;
 unsigned int updateEndDue;
 
 static int update(void* userdata);
@@ -143,7 +141,6 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 
 		global_pd = pd;
 		terminalInit(pd);
-		queueInit(&stdinQueue);
 
 		pythonCo = pdco_create(&pythonCoMain, PYTHON_STACK_SIZE, NULL);
 		if (pythonCo < 0) pd->system->logToConsole("pdco_create error");
@@ -155,9 +152,9 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		mp_sched_keyboard_interrupt();
 		// if we were already in the REPL with a non-empty input line, ^C clears it
 		// ^D should get us out of the REPL
-		queueInit(&stdinQueue); // clear the queue
-		char ctrlcd[2] = { 0x03, 0x04 };
-		queueWrite(&stdinQueue, ctrlcd, sizeof(ctrlcd));
+		stdin_ringbuf.iget = stdin_ringbuf.iput = 0; // clear the queue
+		ringbuf_put(&stdin_ringbuf, 0x03);
+		ringbuf_put(&stdin_ringbuf, 0x04);
 		// if it didn't exit after 100 yields, screw it, quit without cleaning up
 		while (pdco_exists(pythonCo) && --pythonExit > 0) {
 			pdco_yield(pythonCo);
@@ -218,7 +215,7 @@ static void onSerialMessage(const char* data) {
 					mp_sched_keyboard_interrupt();
 				}
 				else {
-					queueWrite(&stdinQueue, &acc, 1);
+					ringbuf_put(&stdin_ringbuf, acc);
 				}
 			}
 			shift += 2;
@@ -228,8 +225,8 @@ static void onSerialMessage(const char* data) {
 	}
 	else {
 		// literal data: convenient to enter manually
-		queueWrite(&stdinQueue, data, strlen(data));
-		queueWrite(&stdinQueue, "\r\n", 2);
+		ringbuf_put_bytes(&stdin_ringbuf, (const uint8_t*)data, strlen(data));
+		ringbuf_put_bytes(&stdin_ringbuf, (const uint8_t*)"\r\n", 2);
 	}
 }
 

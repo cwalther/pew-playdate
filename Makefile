@@ -22,7 +22,7 @@ endif
 VPATH += src
 
 # List C source files here
-SRC = src/main.c src/mphal.c src/terminal.c src/queue.c playdate-coroutines/pdco.c src/modules/_pew/mod_pew.c src/modules/c_hello/modc_hello.c
+SRC = src/main.c src/mphal.c src/terminal.c playdate-coroutines/pdco.c src/modules/_pew/mod_pew.c src/modules/c_hello/modc_hello.c
 SRC += $(wildcard $(MICROPY_EMBED_DIR)/*/*.c)
 # Filter out lib because the files in there cannot be compiled separately, they
 # are #included by other .c files.
