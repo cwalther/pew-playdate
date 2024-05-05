@@ -12,7 +12,8 @@ EMBED_EXTRA += \
 
 # Include source for mphal-backed stdio in the output.
 EMBED_EXTRA += \
-	shared/runtime/sys_stdio_mphal.c
+	shared/runtime/sys_stdio_mphal.c \
+	shared/runtime/stdout_helpers.c
 
 # Include source for REPL and file execution in the output.
 EMBED_EXTRA += \

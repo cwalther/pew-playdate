@@ -27,6 +27,9 @@ THE SOFTWARE.
 #if MICROPY_PY_SYS_STDFILES
 #include "py/stream.h"
 #endif
+#if MICROPY_PY_OS_DUPTERM
+#include "extmod/misc.h"
+#endif
 
 #include "playdate-coroutines/pdco.h"
 
@@ -110,18 +113,6 @@ static void pdSerialPutchar(char c) {
 	}
 }
 
-// Text-mode standard output
-void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
-	for (size_t i = 0; i < len; i++) {
-		char c = str[i];
-		pdSerialPutchar(c);
-		if (c == '\n') {
-			terminalPutchar('\r');
-		}
-		terminalPutchar(c);
-	}
-}
-
 #if MICROPY_PY_SYS_STDFILES && !MICROPY_VFS_POSIX
 
 // Binary-mode standard input
@@ -132,7 +123,12 @@ int mp_hal_stdin_rx_chr(void) {
 		if (c != -1) {
 			return c;
 		}
-		//TODO support MICROPY_PY_OS_DUPTERM
+		#if MICROPY_PY_OS_DUPTERM
+		int dupterm_c = mp_os_dupterm_rx_chr();
+		if (dupterm_c >= 0) {
+			return dupterm_c;
+		}
+		#endif
 		mp_event_wait_indefinite();
 	}
 }
@@ -140,16 +136,21 @@ int mp_hal_stdin_rx_chr(void) {
 // Binary-mode standard output
 // Send the string of given length.
 mp_uint_t mp_hal_stdout_tx_strn(const char *str, size_t len) {
+    mp_uint_t ret = len;
+    bool did_write = true;
 	for (size_t i = 0; i < len; i++) {
 		char c = str[i];
 		pdSerialPutchar(c);
 		terminalPutchar(c);
 	}
-	return len;
-}
-
-void mp_hal_stdout_tx_str(const char *str) {
-	mp_hal_stdout_tx_strn(str, strlen(str));
+	#if MICROPY_PY_OS_DUPTERM
+	int dupterm_res = mp_os_dupterm_tx_strn(str, len);
+	if (dupterm_res >= 0) {
+		did_write = true;
+		ret = MIN((mp_uint_t)dupterm_res, ret);
+	}
+	#endif
+    return did_write ? ret : 0;
 }
 
 uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
@@ -161,6 +162,9 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 		// can always write
 		ret |= MP_STREAM_POLL_WR;
 	}
+	#if MICROPY_PY_OS_DUPTERM
+	ret |= mp_os_dupterm_poll(poll_flags);
+	#endif
 	return ret;
 }
 

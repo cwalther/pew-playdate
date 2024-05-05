@@ -41,6 +41,11 @@
 // Requires MICROPY_EVENT_POLL_HOOK, don't bother as we have no pollable objects.
 #define MICROPY_PY_SELECT                       (0)
 
+// Enable os.dupterm. Not sure what we'd need it for, but it came for free with
+// making our mphal code more similar to bare-metal ports.
+#define MICROPY_PY_OS_DUPTERM                   (1)
+#define MICROPY_PY_OS_DUPTERM_NOTIFY            (1)
+
 // We have our own mphalport.h (which must #include "port/mphalport.h" that
 // mpconfigport_common.h set MICROPY_MPHALPORT_H to).
 #undef MICROPY_MPHALPORT_H
