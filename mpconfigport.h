@@ -34,10 +34,6 @@
 #define MICROPY_PY_TIME_TIME_TIME_NS            (1)
 #define MICROPY_PY_TIME_INCLUDEFILE             "shared/timeutils/modtime_mphal.h"
 
-// Requires shared/readline/readline.h, don't bother as we have no input.
-// TODO actually we do, try this some time
-#define MICROPY_PY_BUILTINS_INPUT               (0)
-
 // Requires MICROPY_EVENT_POLL_HOOK, don't bother as we have no pollable objects.
 #define MICROPY_PY_SELECT                       (0)
 
