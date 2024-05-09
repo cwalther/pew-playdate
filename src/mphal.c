@@ -63,7 +63,7 @@ MP_DEFINE_CONST_FUN_OBJ_KW(mp_builtin_open_obj, 1, mp_builtin_open);
 #if MICROPY_PY_ASYNCIO
 
 mp_uint_t mp_hal_ticks_ms(void) {
-	return 0;
+	return global_pd->system->getCurrentTimeMilliseconds();
 }
 
 #endif
@@ -77,12 +77,10 @@ void mp_hal_delay_us(mp_uint_t us) {
 }
 
 mp_uint_t mp_hal_ticks_us(void) {
-	return 0;
+	return (mp_uint_t)(1.0e6f * global_pd->system->getElapsedTime());
 }
 
-mp_uint_t mp_hal_ticks_cpu(void) {
-	return 0;
-}
+// mp_hal_ticks_cpu #defined in mphalport.h
 
 #endif
 
