@@ -184,7 +184,7 @@ void pd_hal_wfe_ms(int timeout_ms) {
 	// to be a sleep function in the Playdate API) or return immediately for
 	// timeout 0 as from MICROPY_VM_HOOK_POLL.
 	int end = global_pd->system->getCurrentTimeMilliseconds() + timeout_ms;
-	if (end - updateEndDue >= 0) {
+	if (end - (int)updateEndDue >= 0) {
 		pdco_yield(PDCO_MAIN_ID);
 	}
 	else if (timeout_ms > 0) {
