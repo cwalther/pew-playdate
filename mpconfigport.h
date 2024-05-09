@@ -34,9 +34,6 @@
 #define MICROPY_PY_TIME_TIME_TIME_NS            (1)
 #define MICROPY_PY_TIME_INCLUDEFILE             "shared/timeutils/modtime_mphal.h"
 
-// Requires MICROPY_EVENT_POLL_HOOK, don't bother as we have no pollable objects.
-#define MICROPY_PY_SELECT                       (0)
-
 // Enable os.dupterm. Not sure what we'd need it for, but it came for free with
 // making our mphal code more similar to bare-metal ports.
 #define MICROPY_PY_OS_DUPTERM                   (1)
