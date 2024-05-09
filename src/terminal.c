@@ -34,10 +34,7 @@ static uint16_t buffer[WIDTH_CHARS*HEIGHT_CHARS];
 static uint16_t* cursor = &buffer[0];
 static int utf8shift = 0;
 static LCDFont* font = NULL;
-static LCDFont* font1 = NULL;
-static LCDFont* font2 = NULL;
-static LCDFont* font3 = NULL;
-static LCDFont* font4 = NULL;
+static LCDFont* fonts[5];
 static int dirtyRowsBegin = 0;
 static int dirtyRowsEnd = 0;
 static int cursorx = 0;
@@ -49,20 +46,24 @@ static int eseqn = 0;
 
 void terminalInit(PlaydateAPI* pd) {
 	const char* err;
-	font = font1 = pd->graphics->loadFont("fonts/Moof-15", &err);
-	if (font1 == NULL) {
+	font = fonts[0] = pd->graphics->loadFont("fonts/Moof-15", &err);
+	if (fonts[0] == NULL) {
 		pd->system->error("Couldn't load terminal font: %s", err);
 	}
-	font2 = pd->graphics->loadFont("fonts/Gnu-15", &err);
-	if (font2 == NULL) {
+	fonts[1] = pd->graphics->loadFont("fonts/Gnu-15", &err);
+	if (fonts[1] == NULL) {
 		pd->system->error("Couldn't load terminal font: %s", err);
 	}
-	font3 = pd->graphics->loadFont("fonts/Xnu-15", &err);
-	if (font3 == NULL) {
+	fonts[2] = pd->graphics->loadFont("fonts/Xnu-15", &err);
+	if (fonts[2] == NULL) {
 		pd->system->error("Couldn't load terminal font: %s", err);
 	}
-	font4 = pd->graphics->loadFont("fonts/Ari-15", &err);
-	if (font4 == NULL) {
+	fonts[3] = pd->graphics->loadFont("fonts/Ari-15", &err);
+	if (fonts[3] == NULL) {
+		pd->system->error("Couldn't load terminal font: %s", err);
+	}
+	fonts[4] = pd->graphics->loadFont("fonts/ttyp0-15", &err);
+	if (fonts[4] == NULL) {
 		pd->system->error("Couldn't load terminal font: %s", err);
 	}
 }
@@ -258,7 +259,12 @@ void terminalUpdate(PlaydateAPI* pd) {
 	PDButtons pushed;
 	pd->system->getButtonState(NULL, &pushed, NULL);
 	if (pushed & kButtonA) {
-		font = (font == font1) ? font2 : (font == font2) ? font3 : (font == font3) ? font4 : font1;
+		for (int i = 0; i < sizeof(fonts)/sizeof(fonts[0]); i++) {
+			if (font == fonts[i]) {
+				font = fonts[(i + 1) % (sizeof(fonts)/sizeof(fonts[0]))];
+				break;
+			}
+		}
 		terminalTouch();
 	}
 
