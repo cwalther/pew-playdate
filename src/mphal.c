@@ -71,9 +71,26 @@ mp_uint_t mp_hal_ticks_ms(void) {
 #if MICROPY_PY_TIME
 
 void mp_hal_delay_ms(mp_uint_t ms) {
+	mp_int_t end = mp_hal_ticks_ms() + ms;
+	mp_int_t remaining = ms;
+	do {
+		mp_event_wait_ms(remaining);
+		remaining = end - mp_hal_ticks_ms();
+	} while (remaining > 0);
 }
 
 void mp_hal_delay_us(mp_uint_t us) {
+	mp_int_t end = mp_hal_ticks_us() + us;
+	// If the delay is long (usually not), use the yielding function to work off
+	// the bulk first. (Threshold 10000 is somewhat arbitrary.)
+	// This is not required by the documentation and the bare-metal ports do not
+	// do it, but seems useful on the Playdate where yielding is important for
+	// responsive display/input and to avoid getting killed by the watchdog.
+	if (us >= 10000) {
+		mp_hal_delay_ms((us - 1000) / 1000);
+	}
+	// Then busy-wait for the rest.
+	while (end - (mp_int_t)mp_hal_ticks_us() > 0) {}
 }
 
 mp_uint_t mp_hal_ticks_us(void) {
@@ -88,7 +105,10 @@ mp_uint_t mp_hal_ticks_us(void) {
 
 uint64_t mp_hal_time_ns(void) {
 	// Nanoseconds since the Epoch.
-	return 0;
+	// Conveniently, Playdate has the same epoch as MicroPython (2000-01-01).
+	unsigned int milliseconds;
+	uint64_t seconds = global_pd->system->getSecondsSinceEpoch(&milliseconds);
+	return 1000000000*seconds + 1000000*milliseconds;
 }
 
 #endif
