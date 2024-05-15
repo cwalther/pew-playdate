@@ -25,3 +25,17 @@ THE SOFTWARE.
 #include "py/obj.h"
 
 extern const mp_obj_type_t mp_type_vfs_pd;
+
+typedef struct _mp_obj_vfs_pd_t {
+	mp_obj_base_t base;
+	// ends but does not start with '/' (as many '/' as components)
+	vstr_t root;
+	// relative to root, starts and ends with '/' (one more '/' than components)
+	vstr_t cur_dir;
+	size_t root_len;
+	bool readonly;
+} mp_obj_vfs_pd_t;
+
+const char *vfs_pd_make_path(mp_obj_vfs_pd_t *self, mp_obj_t path_in);
+NORETURN void raise_OSError_pd(void);
+mp_obj_t vfs_pd_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t mode_in);

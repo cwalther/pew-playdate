@@ -32,19 +32,9 @@ THE SOFTWARE.
 // not compile, and does not have the Playdate SDK
 #endif
 
-typedef struct _mp_obj_vfs_pd_t {
-	mp_obj_base_t base;
-	// ends but does not start with '/' (as many '/' as components)
-	vstr_t root;
-	// relative to root, starts and ends with '/' (one more '/' than components)
-	vstr_t cur_dir;
-	size_t root_len;
-	bool readonly;
-} mp_obj_vfs_pd_t;
-
 // input: path relative to root if starting with '/', else relative to cur_dir
 // output: full path ready for Playdate APIs, no leading or trailing /, no . or ..
-static const char *vfs_pd_make_path(mp_obj_vfs_pd_t *self, mp_obj_t path_in) {
+const char *vfs_pd_make_path(mp_obj_vfs_pd_t *self, mp_obj_t path_in) {
 	const char *path = mp_obj_str_get_str(path_in);
 	self->root.len = self->root_len;
 	// the previous call may have eaten up the trailing / if it referred to the
@@ -104,7 +94,7 @@ static const char *vfs_pd_make_path(mp_obj_vfs_pd_t *self, mp_obj_t path_in) {
 	return vstr_null_terminated_str(&self->root);
 }
 
-NORETURN static void raise_OSError_pd(void) {
+NORETURN void raise_OSError_pd(void) {
 	const char* msg = global_pd->file->geterr();
 	mp_obj_t o_str = mp_obj_new_str(msg, strlen(msg));
 	// ENOENT isn't always the correct error code, but often, and there's no way
@@ -170,6 +160,9 @@ static mp_obj_t vfs_pd_umount(mp_obj_t self_in) {
 	return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(vfs_pd_umount_obj, vfs_pd_umount);
+
+// vfs_pd_open implemented in vfs_pd_file.c
+static MP_DEFINE_CONST_FUN_OBJ_3(vfs_pd_open_obj, vfs_pd_open);
 
 static mp_obj_t vfs_pd_chdir(mp_obj_t self_in, mp_obj_t path_in) {
 	mp_obj_vfs_pd_t *self = MP_OBJ_TO_PTR(self_in);
@@ -310,7 +303,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(vfs_pd_stat_obj, vfs_pd_stat);
 static const mp_rom_map_elem_t vfs_pd_locals_dict_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&vfs_pd_mount_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&vfs_pd_umount_obj) },
-//TODO	{ MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&vfs_pd_open_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&vfs_pd_open_obj) },
 
 	{ MP_ROM_QSTR(MP_QSTR_chdir), MP_ROM_PTR(&vfs_pd_chdir_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_getcwd), MP_ROM_PTR(&vfs_pd_getcwd_obj) },
