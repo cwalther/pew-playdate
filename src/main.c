@@ -42,6 +42,7 @@ THE SOFTWARE.
 
 #include "globals.h"
 #include "terminal.h"
+#include "display.h"
 
 #define PYTHON_STACK_SIZE 65536
 
@@ -50,7 +51,23 @@ unsigned int updateEndDue;
 
 static int update(void* userdata);
 static void onSerialMessage(const char* data);
+static void onMenuInvert(void* userdata);
+static void onMenuNavigate(void* userdata);
 static pdco_handle_t pythonCoMain(pdco_handle_t caller);
+
+typedef struct {
+	void (*enter)(void);
+	void (*update)(PlaydateAPI* pd);
+} Card;
+
+static Card displayCard = {
+	displayTouch,
+	displayUpdate
+};
+static Card terminalCard = {
+	terminalTouch,
+	terminalUpdate
+};
 
 #if EMBED_EXAMPLES
 // This is example 1 script, which will be compiled and executed.
@@ -125,6 +142,8 @@ static const char *example_2 =
 static char heap[16 * 1024];
 static pdco_handle_t pythonCo;
 static int pythonExit = 0;
+static Card* currentCard;
+static PDMenuItem* terminalItem;
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -141,9 +160,21 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 
 		global_pd = pd;
 		terminalInit(pd);
+		displayInit(pd);
+		currentCard = &displayCard;
+
+		PDMenuItem* item = pd->system->addCheckmarkMenuItem("invert", 0, &onMenuInvert, NULL);
+		pd->system->setMenuItemUserdata(item, item);
+		terminalItem = pd->system->addMenuItem("terminal", &onMenuNavigate, NULL);
 
 		pythonCo = pdco_create(&pythonCoMain, PYTHON_STACK_SIZE, NULL);
 		if (pythonCo < 0) pd->system->logToConsole("pdco_create error");
+	}
+	else if (event == kEventPause) {
+		// TODO
+		int terminalHasNewText = rand()&1;
+		pd->system->setMenuItemTitle(terminalItem, (currentCard == &terminalCard) ? "hide terminal" : terminalHasNewText ? "terminal \xE2\x9C\xA8" : "terminal");
+		pd->system->setMenuItemUserdata(terminalItem, (currentCard == &terminalCard) ? &displayCard : &terminalCard);
 	}
 	else if (event == kEventTerminate) {
 		pd->system->logToConsole("telling python to exit");
@@ -172,7 +203,7 @@ static int update(void* userdata)
 	// the frame rate to less than 30
 	updateEndDue = pd->system->getCurrentTimeMilliseconds() + 32;
 
-	terminalUpdate(pd);
+	currentCard->update(pd);
 
 	pdco_yield(pythonCo);
 
@@ -227,6 +258,19 @@ static void onSerialMessage(const char* data) {
 		// literal data: convenient to enter manually
 		ringbuf_put_bytes(&stdin_ringbuf, (const uint8_t*)data, strlen(data));
 		ringbuf_put_bytes(&stdin_ringbuf, (const uint8_t*)"\r\n", 2);
+	}
+}
+
+static void onMenuInvert(void* userdata) {
+	int value = global_pd->system->getMenuItemValue((PDMenuItem *)userdata);
+	displaySetInverted(global_pd, value);
+}
+
+static void onMenuNavigate(void* userdata) {
+	Card* newCard = userdata;
+	if (currentCard != newCard) {
+		currentCard = newCard;
+		currentCard->enter();
 	}
 }
 
