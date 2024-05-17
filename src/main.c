@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include "globals.h"
 #include "terminal.h"
 #include "display.h"
+#include "preferences.h"
 
 #define PYTHON_STACK_SIZE 65536
 
@@ -159,11 +160,12 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		pd->display->setRefreshRate(30.0f);
 
 		global_pd = pd;
+		preferencesRead(pd);
 		terminalInit(pd);
 		displayInit(pd);
 		currentCard = &displayCard;
 
-		PDMenuItem* item = pd->system->addCheckmarkMenuItem("invert", 0, &onMenuInvert, NULL);
+		PDMenuItem* item = pd->system->addCheckmarkMenuItem("invert", preferences.inverted, &onMenuInvert, NULL);
 		pd->system->setMenuItemUserdata(item, item);
 		terminalItem = pd->system->addMenuItem("terminal", &onMenuNavigate, NULL);
 
@@ -264,6 +266,8 @@ static void onSerialMessage(const char* data) {
 static void onMenuInvert(void* userdata) {
 	int value = global_pd->system->getMenuItemValue((PDMenuItem *)userdata);
 	displaySetInverted(global_pd, value);
+	preferences.inverted = value;
+	preferencesWrite(global_pd);
 }
 
 static void onMenuNavigate(void* userdata) {

@@ -22,6 +22,7 @@ THE SOFTWARE.
 
 #include "display.h"
 #include "globals.h"
+#include "preferences.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -60,8 +61,7 @@ void displaySetInverted(PlaydateAPI* pd, int inv) {
 }
 
 void displayInit(PlaydateAPI* pd) {
-	// TODO read from preferences
-	displaySetInverted(pd, 0);
+	displaySetInverted(pd, preferences.inverted);
 	memset(frontbuf, 255, WIDTH*HEIGHT);
 }
 
