@@ -136,14 +136,17 @@ static void pdSerialPutchar(char c) {
 // Binary-mode standard input
 // Receive single character, blocking until one is available.
 int mp_hal_stdin_rx_chr(void) {
+	pythonWaitingForInput = 1;
 	for (;;) {
 		int c = ringbuf_get(&stdin_ringbuf);
 		if (c != -1) {
+			pythonWaitingForInput = 0;
 			return c;
 		}
 		#if MICROPY_PY_OS_DUPTERM
 		int dupterm_c = mp_os_dupterm_rx_chr();
 		if (dupterm_c >= 0) {
+			pythonWaitingForInput = 0;
 			return dupterm_c;
 		}
 		#endif

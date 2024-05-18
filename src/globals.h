@@ -26,3 +26,5 @@ THE SOFTWARE.
 
 extern PlaydateAPI* global_pd;
 extern unsigned int updateEndDue;
+extern int pythonInRepl;
+extern int pythonWaitingForInput;

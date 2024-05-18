@@ -30,6 +30,8 @@ THE SOFTWARE.
 #define CELLW 8
 #define CELLH 15
 
+int terminalUnread = 0;
+
 static uint16_t buffer[WIDTH_CHARS*HEIGHT_CHARS];
 static uint16_t* cursor = &buffer[0];
 static int utf8shift = 0;
@@ -244,6 +246,7 @@ void terminalPutchar(unsigned char c) {
 		}
 	}
 	lastActivity = global_pd->system->getCurrentTimeMilliseconds();
+	terminalUnread = 1;
 }
 
 void terminalWrite(const char* data, size_t len) {

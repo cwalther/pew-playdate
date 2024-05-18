@@ -23,6 +23,9 @@ THE SOFTWARE.
 #include "display.h"
 #include "globals.h"
 #include "preferences.h"
+#include "terminal.h"
+
+#include "py/mphal.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -38,11 +41,26 @@ THE SOFTWARE.
 enum {
 	eDirtyBackground = 1 << 0
 };
+enum {
+	eIndicatorMenu = WIDTH*HEIGHT,
+	eIndicatorA,
+	eBufferSize
+};
 
 static LCDBitmapTable* pixeltable;
 static LCDBitmap* background;
-static uint8_t frontbuf[WIDTH*HEIGHT];
-static uint8_t backbuf[WIDTH*HEIGHT];
+static struct Indicator {
+	const char* tableName;
+	int x;
+	int y;
+	LCDBitmapTable* table;
+} indicators[3] = {
+	{"images/indicatorMenu", 390, 45},
+	{"images/indicatorA", 374, 229},
+	{NULL},
+};
+static uint8_t frontbuf[eBufferSize];
+static uint8_t backbuf[eBufferSize];
 static uint8_t dirty;
 
 void displaySetInverted(PlaydateAPI* pd, int inv) {
@@ -61,8 +79,15 @@ void displaySetInverted(PlaydateAPI* pd, int inv) {
 }
 
 void displayInit(PlaydateAPI* pd) {
+	const char* err;
+	for (struct Indicator* i = &indicators[0]; i->tableName != NULL; i++) {
+		i->table = pd->graphics->loadBitmapTable(i->tableName, &err);
+		if (i->table == NULL) {
+			pd->system->error("Couldn't load bitmap table: %s", err);
+		}
+	}
 	displaySetInverted(pd, preferences.inverted);
-	memset(frontbuf, 255, WIDTH*HEIGHT);
+	memset(frontbuf, 255, eBufferSize);
 }
 
 void displayTouch(void) {
@@ -72,11 +97,21 @@ void displayTouch(void) {
 void displayUpdate(PlaydateAPI* pd) {
 	backbuf[rand()%64] = rand()%4; //DEBUG
 
+	PDButtons pushed;
+	pd->system->getButtonState(NULL, &pushed, NULL);
+	// when the restart indicator is on, A sends ^D
+	if (pythonInRepl && pythonWaitingForInput && (pushed & kButtonA)) {
+		ringbuf_put(&stdin_ringbuf, 0x04);
+	}
+
 	if (dirty & eDirtyBackground) {
 		pd->graphics->drawBitmap(background, 0, 0, kBitmapUnflipped);
-		memset(frontbuf, 255, WIDTH*HEIGHT);
+		memset(frontbuf, 255, eBufferSize);
 		dirty &= ~eDirtyBackground;
 	}
+
+	backbuf[eIndicatorMenu] = terminalUnread;
+	backbuf[eIndicatorA] = (pythonInRepl && pythonWaitingForInput);
 
 	uint8_t* frontpix = &frontbuf[0];
 	uint8_t* backpix = &backbuf[0];
@@ -91,5 +126,15 @@ void displayUpdate(PlaydateAPI* pd) {
 			frontpix++;
 			backpix++;
 		}
+	}
+	for (struct Indicator* i = &indicators[0]; i->tableName != NULL; i++) {
+		uint8_t c = *backpix;
+		if (*frontpix != c) {
+			*frontpix = c;
+			LCDBitmap* bmp = pd->graphics->getTableBitmap(i->table, c);
+			pd->graphics->drawBitmap(bmp, i->x, i->y, kBitmapUnflipped);
+		}
+		frontpix++;
+		backpix++;
 	}
 }

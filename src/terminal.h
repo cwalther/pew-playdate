@@ -24,6 +24,8 @@ THE SOFTWARE.
 
 #include "pd_api.h"
 
+extern int terminalUnread;
+
 void terminalInit(PlaydateAPI* pd);
 void terminalTouch(void);
 void terminalPutchar(unsigned char c);

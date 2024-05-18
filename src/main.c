@@ -49,6 +49,8 @@ THE SOFTWARE.
 
 PlaydateAPI* global_pd;
 unsigned int updateEndDue;
+int pythonInRepl;
+int pythonWaitingForInput;
 
 static int update(void* userdata);
 static void onSerialMessage(const char* data);
@@ -173,9 +175,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		if (pythonCo < 0) pd->system->logToConsole("pdco_create error");
 	}
 	else if (event == kEventPause) {
-		// TODO
-		int terminalHasNewText = rand()&1;
-		pd->system->setMenuItemTitle(terminalItem, (currentCard == &terminalCard) ? "hide terminal" : terminalHasNewText ? "terminal \xE2\x9C\xA8" : "terminal");
+		pd->system->setMenuItemTitle(terminalItem, (currentCard == &terminalCard) ? "hide terminal" : terminalUnread ? "terminal \xE2\x9C\xA8" : "terminal");
 		pd->system->setMenuItemUserdata(terminalItem, (currentCard == &terminalCard) ? &displayCard : &terminalCard);
 	}
 	else if (event == kEventTerminate) {
@@ -273,6 +273,9 @@ static void onMenuInvert(void* userdata) {
 static void onMenuNavigate(void* userdata) {
 	Card* newCard = userdata;
 	if (currentCard != newCard) {
+		if (currentCard == &terminalCard) {
+			terminalUnread = 0;
+		}
 		currentCard = newCard;
 		currentCard->enter();
 	}
@@ -311,6 +314,7 @@ static pdco_handle_t pythonCoMain(pdco_handle_t caller) {
 		mp_embed_exec_str(example_2);
 #endif
 
+		pythonInRepl = 1;
 		for (;;) {
 			if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
 				if (pyexec_raw_repl() != 0) {
@@ -322,6 +326,7 @@ static pdco_handle_t pythonCoMain(pdco_handle_t caller) {
 				}
 			}
 		}
+		pythonInRepl = 0;
 
 	soft_reset_exit:
 		mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
