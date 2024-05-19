@@ -26,10 +26,10 @@ THE SOFTWARE.
 #include "terminal.h"
 
 #include "py/mphal.h"
+#include "py/binary.h"
 
 #include <stdint.h>
 #include <string.h>
-#include <stdlib.h> //DEBUG
 
 #define WIDTH 8
 #define HEIGHT 8
@@ -95,8 +95,6 @@ void displayTouch(void) {
 }
 
 void displayUpdate(PlaydateAPI* pd) {
-	backbuf[rand()%64] = rand()%4; //DEBUG
-
 	PDButtons pushed;
 	pd->system->getButtonState(NULL, &pushed, NULL);
 	// when the restart indicator is on, A sends ^D
@@ -137,4 +135,37 @@ void displayUpdate(PlaydateAPI* pd) {
 		frontpix++;
 		backpix++;
 	}
+}
+
+mp_obj_t displayShow(mp_obj_t bufferobj, mp_obj_t width) {
+	mp_buffer_info_t bi;
+	mp_get_buffer_raise(bufferobj, &bi, MP_BUFFER_READ);
+	mp_int_t w = mp_obj_get_int(width);
+	if (w == 8 && (bi.typecode == BYTEARRAY_TYPECODE
+		|| bi.typecode == 'B' || bi.typecode == 'b'))
+	{
+		if (bi.len > WIDTH*HEIGHT) {
+			bi.len = WIDTH*HEIGHT;
+		}
+		for (int i = 0; i < bi.len; i++) {
+			backbuf[i] = ((unsigned char*)bi.buf)[i] & 3;
+		}
+	}
+	else {
+		int n = bi.len / mp_binary_get_size('@', bi.typecode, NULL);
+		int x = 0;
+		int y = 0;
+		for (size_t i = 0; i < n; i++) {
+			if (x < WIDTH) {
+				backbuf[y*WIDTH + x] = mp_obj_get_int(mp_binary_get_val_array(bi.typecode, bi.buf, i)) & 3;
+			}
+			if (++x == w) {
+				x = 0;
+				if (++y == HEIGHT) {
+					break;
+				}
+			}
+		}
+	}
+	return mp_const_none;
 }
