@@ -142,7 +142,7 @@ static const char *example_2 =
 
 // This array is the MicroPython GC heap.
 // TODO enlarge this some time, but while shaking out bugs it seems a good idea to hammer the GC
-static char heap[16 * 1024];
+static char heap[36 * 1024];
 static pdco_handle_t pythonCo;
 static int pythonExit = 0;
 static Card* currentCard;
@@ -329,6 +329,7 @@ static pdco_handle_t pythonCoMain(pdco_handle_t caller) {
 		pythonInRepl = 0;
 
 	soft_reset_exit:
+		// TODO this shouldn't set terminalUnread when invoked from the A button
 		mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
 		gc_sweep_all();
 		mp_deinit();
