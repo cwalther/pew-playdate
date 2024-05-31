@@ -30,3 +30,4 @@ void displayTouch(void);
 void displayUpdate(PlaydateAPI* pd);
 void displaySetInverted(PlaydateAPI* pd, int inv);
 mp_obj_t displayShow(mp_obj_t bufferobj, mp_obj_t width);
+mp_obj_t displayKeys(void);

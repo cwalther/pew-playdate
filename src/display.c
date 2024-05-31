@@ -62,6 +62,8 @@ static struct Indicator {
 static uint8_t frontbuf[eBufferSize];
 static uint8_t backbuf[eBufferSize];
 static uint8_t dirty;
+static PDButtons currentKeys;
+static PDButtons collectedKeys;
 
 void displaySetInverted(PlaydateAPI* pd, int inv) {
 	const char* err;
@@ -96,11 +98,12 @@ void displayTouch(void) {
 
 void displayUpdate(PlaydateAPI* pd) {
 	PDButtons pushed;
-	pd->system->getButtonState(NULL, &pushed, NULL);
+	pd->system->getButtonState(&currentKeys, &pushed, NULL);
 	// when the restart indicator is on, A sends ^D
 	if (pythonInRepl && pythonWaitingForInput && (pushed & kButtonA)) {
 		ringbuf_put(&stdin_ringbuf, 0x04);
 	}
+	collectedKeys |= currentKeys | pushed;
 
 	if (dirty & eDirtyBackground) {
 		pd->graphics->drawBitmap(background, 0, 0, kBitmapUnflipped);
@@ -168,4 +171,11 @@ mp_obj_t displayShow(mp_obj_t bufferobj, mp_obj_t width) {
 		}
 	}
 	return mp_const_none;
+}
+
+mp_obj_t displayKeys(void) {
+	// getButtonState() also seems to return 64 for Menu, filter that out
+	PDButtons k = collectedKeys & (kButtonLeft|kButtonRight|kButtonUp|kButtonDown|kButtonB|kButtonA);
+	collectedKeys = currentKeys;
+	return MP_OBJ_NEW_SMALL_INT(k);
 }

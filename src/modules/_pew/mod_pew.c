@@ -33,6 +33,7 @@ THE SOFTWARE.
 #endif
 
 static MP_DEFINE_CONST_FUN_OBJ_2(show_obj, displayShow);
+static MP_DEFINE_CONST_FUN_OBJ_0(keys_obj, displayKeys);
 
 static mp_obj_t tick(mp_obj_t delta_s) {
 	static mp_int_t nextTick = 0;
@@ -62,6 +63,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(tick_obj, tick);
 static const mp_rom_map_elem_t pew_module_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__pew) },
 	{ MP_ROM_QSTR(MP_QSTR_show), MP_ROM_PTR(&show_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_keys), MP_ROM_PTR(&keys_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_tick), MP_ROM_PTR(&tick_obj) },
     { MP_ROM_QSTR(MP_QSTR_VfsPD), MP_ROM_PTR(&mp_type_vfs_pd) },
 };
