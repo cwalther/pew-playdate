@@ -22,6 +22,7 @@ THE SOFTWARE.
 
 #include "py/runtime.h"
 #include "py/objstr.h"
+#include "py/mphal.h"
 
 #include "vfs_pd.h"
 
@@ -33,9 +34,35 @@ THE SOFTWARE.
 
 static MP_DEFINE_CONST_FUN_OBJ_2(show_obj, displayShow);
 
+static mp_obj_t tick(mp_obj_t delta_s) {
+	static mp_int_t nextTick = 0;
+	static uint8_t nextTickInitialized = 0;
+	mp_int_t delta_ms = (mp_int_t)(1000*mp_obj_get_float(delta_s));
+	mp_int_t now = mp_hal_ticks_ms();
+	if (!nextTickInitialized) {
+		nextTick = now;
+		nextTickInitialized = 1;
+	}
+	nextTick += delta_ms;
+	if (nextTick - now < 0) {
+		nextTick = now;
+	}
+	while (1) {
+		mp_int_t remaining = nextTick - now;
+		if (remaining <= 0) {
+			break;
+		}
+		mp_event_wait_ms(remaining);
+		now = mp_hal_ticks_ms();
+	}
+	return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(tick_obj, tick);
+
 static const mp_rom_map_elem_t pew_module_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__pew) },
 	{ MP_ROM_QSTR(MP_QSTR_show), MP_ROM_PTR(&show_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_tick), MP_ROM_PTR(&tick_obj) },
     { MP_ROM_QSTR(MP_QSTR_VfsPD), MP_ROM_PTR(&mp_type_vfs_pd) },
 };
 static MP_DEFINE_CONST_DICT(pew_module_globals, pew_module_globals_table);
