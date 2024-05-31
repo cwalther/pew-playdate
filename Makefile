@@ -35,7 +35,7 @@ UINCDIR = $(MICROPY_EMBED_DIR) $(MICROPY_EMBED_DIR)/port $(MICROPY_EMBED_DIR)/li
 UASRC =
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS =
+UDEFS = -DNDEBUG
 
 # Define ASM defines here
 UADEFS =
