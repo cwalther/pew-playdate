@@ -48,6 +48,11 @@ ULIBS =
 
 include $(SDK)/C_API/buildsupport/common.mk
 
+# Include dummy implementations of syscalls to fix linker errors like "undefined
+# reference to `_write'"; I have not figured out yet where in MicroPython these
+# references come from and whether they could be avoided.
+LDFLAGS += --specs=nosys.specs
+
 micropython_embed/port/micropython_embed.h: micropython/ports/embed/port/micropython_embed.h mpconfigport.h manifest.py
 	$(MAKE) -f micropython_embed.mk
 

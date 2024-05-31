@@ -4,24 +4,7 @@ Work in progress on running [PewPew](https://pewpew.readthedocs.io/) games on th
 
 ## How to build
 
-1. Apply this [change](https://devforum.play.date/t/undefined-reference-to-exit-and-friends/7263/2) to your Playdate SDK to fix linker errors about undefined references to various functions
-   (I have not examined yet where exactly in MicroPython the references come from and whether they could be avoided):
-   ```diff
-   --- PlaydateSDK/C_API/buildsupport/common.mk	2024-04-01 18:56:16
-   +++ PlaydateSDK/C_API/buildsupport/common.mk	2024-04-01 18:56:16
-   @@ -104,6 +104,9 @@
-
-    LDFLAGS  = -nostartfiles $(MCFLAGS) -T$(LDSCRIPT) -Wl,-Map=$(OBJDIR)/pdex.map,--cref,--gc-sections,--no-warn-mismatch,--emit-relocs $(LIBDIR)
-
-   +# see https://devforum.play.date/t/undefined-reference-to-exit-and-friends/7263/2
-   +LDFLAGS += --specs=nosys.specs
-   +
-    # Generate dependency information
-    CPFLAGS += -MD -MP -MF $(DEPDIR)/$(@F).d
-
-   ```
-
-2. Clone this repository.
+1. Clone this repository.
    ```sh
    git clone https://github.com/cwalther/pew-playdate.git pewpew
    cd pewpew
