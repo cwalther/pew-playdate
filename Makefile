@@ -53,7 +53,10 @@ include $(SDK)/C_API/buildsupport/common.mk
 # references come from and whether they could be avoided.
 LDFLAGS += --specs=nosys.specs
 
-micropython_embed/port/micropython_embed.h: micropython/ports/embed/port/micropython_embed.h mpconfigport.h manifest.py
+micropython_embed/genhdr/qstrdefs.generated.h : micropython/ports/embed/port/micropython_embed.h mpconfigport.h
 	$(MAKE) -f micropython_embed.mk
+	touch micropython_embed/genhdr/qstrdefs.generated.h
 
-build/src/main.o: micropython_embed/port/micropython_embed.h
+micropython_embed/frozen/frozen_content.c : manifest.py $(wildcard src/modules/*.py)
+	$(MAKE) -f micropython_embed.mk
+	touch micropython_embed/frozen/frozen_content.c
