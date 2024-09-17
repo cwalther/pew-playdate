@@ -4,3 +4,4 @@ description=Run 8x8 pixel games written in Python.
 bundleID=ch.kolleegium.pewpew
 version=0.1
 buildNumber=0
+imagePath=images
