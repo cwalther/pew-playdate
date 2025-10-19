@@ -34,7 +34,7 @@ THE SOFTWARE.
 #endif
 #include "py/gc.h"
 #include "py/runtime.h"
-#include "py/stackctrl.h"
+#include "py/cstack.h"
 #include "py/mphal.h"
 #include "shared/runtime/pyexec.h"
 #include "shared/runtime/interrupt_char.h"
@@ -283,11 +283,8 @@ static void onMenuNavigate(void* userdata) {
 
 static pdco_handle_t pythonCoMain(pdco_handle_t caller) {
 	int stack_top;
-	mp_stack_set_top(&stack_top);
-#if MICROPY_STACK_CHECK
 	// deduction accounts for pdco STACKMARGIN and stuff above &stack_top
-	mp_stack_set_limit(PYTHON_STACK_SIZE - 176);
-#endif
+	mp_cstack_init_with_top(&stack_top, PYTHON_STACK_SIZE - 176);
 	gc_init(&heap[0], &heap[0] + sizeof(heap));
 
 	while (!pythonExit) {

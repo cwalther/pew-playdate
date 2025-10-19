@@ -96,7 +96,7 @@ const char *vfs_pd_make_path(mp_obj_vfs_pd_t *self, mp_obj_t path_in) {
 
 NORETURN void raise_OSError_pd(void) {
 	const char* msg = global_pd->file->geterr();
-	mp_obj_t o_str = mp_obj_new_str(msg, strlen(msg));
+	mp_obj_t o_str = mp_obj_new_str_from_cstr(msg);
 	// ENOENT isn't always the correct error code, but often, and there's no way
 	// to find out (except, fragile, checking for known strings).
 	mp_obj_t args[2] = { MP_OBJ_NEW_SMALL_INT(MP_ENOENT), MP_OBJ_FROM_PTR(o_str)};
