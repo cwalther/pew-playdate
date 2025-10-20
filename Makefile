@@ -60,3 +60,28 @@ micropython_embed/genhdr/qstrdefs.generated.h : micropython/ports/embed/port/mic
 micropython_embed/frozen/frozen_content.c : manifest.py $(wildcard src/modules/*.py)
 	$(MAKE) -f micropython_embed.mk
 	touch micropython_embed/frozen/frozen_content.c
+
+device_bin simulator_bin: Source/initfiles/main.py Source/initfiles/maze3d.py Source/initfiles/m3dlevel.bmp Source/initfiles/othello.py Source/initfiles/snake.py Source/initfiles/tetris.py
+
+Source/initfiles/main.py: examples/game-menu/main.py examples/game-menu/LICENSE
+	(printf '# ' && paste -s -d ' ' examples/game-menu/LICENSE && cat "$<") > "$@"
+
+Source/initfiles/maze3d.py: examples/game-maze3d/maze3d.py examples/game-maze3d/LICENSE
+	(printf '# ' && paste -s -d ' ' examples/game-maze3d/LICENSE && cat "$<") > "$@"
+
+Source/initfiles/m3dlevel.bmp: examples/game-maze3d/m3dlevel.bmp
+	cp "$<" "$@"
+
+Source/initfiles/othello.py: examples/game-othello/othello.py examples/game-othello/LICENSE
+	(printf '# ' && paste -s -d ' ' examples/game-othello/LICENSE && tail -n +2 "$<") > "$@"
+
+Source/initfiles/snake.py: examples/game-snake/snake.py examples/game-snake/LICENSE
+	(printf '# ' && paste -s -d ' ' examples/game-snake/LICENSE && cat "$<") > "$@"
+
+Source/initfiles/tetris.py: examples/game-tetris/tetris.py examples/game-tetris/LICENSE
+	(printf '# ' && paste -s -d ' ' examples/game-tetris/LICENSE && cat "$<") > "$@"
+
+clean-initfiles:
+	rm -rfv Source/initfiles/*.py Source/initfiles/m3dlevel.bmp
+
+clean: clean-initfiles

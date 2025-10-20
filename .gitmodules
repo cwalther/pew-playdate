@@ -4,3 +4,18 @@
 [submodule "playdate-coroutines"]
 	path = playdate-coroutines
 	url = https://github.com/nstbayless/playdate-coroutines.git
+[submodule "examples/game-menu"]
+	path = examples/game-menu
+	url = https://github.com/pewpew-game/game-menu.git
+[submodule "examples/game-maze3d"]
+	path = examples/game-maze3d
+	url = https://github.com/cwalther/pewpew-game-maze3d.git
+[submodule "examples/game-othello"]
+	path = examples/game-othello
+	url = https://github.com/pewpew-game/game-othello.git
+[submodule "examples/game-snake"]
+	path = examples/game-snake
+	url = https://github.com/pewpew-game/game-snake.git
+[submodule "examples/game-tetris"]
+	path = examples/game-tetris
+	url = https://github.com/pewpew-game/game-tetris.git
